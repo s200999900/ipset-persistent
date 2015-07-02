@@ -66,14 +66,14 @@ load_sets()
 {
     log_action_begin_msg "Loading ipset sets"
 
-    if [ "$IP_SPLIT_CONFIG" == "yes" ]; then
+    if [ "$IP_SPLIT_CONFIG" = "yes" ]; then
         $IPSET_BIN flush
         for filename in $CONF_DIR/*.set; do
             if [ -f "$filename" ]; then
                 $IPSET_BIN restore -exist < "$filename"
                 if [ $? -ne 0 ]; then
                     rc=1
-                    log_action_cont_msg " $filename - FAILED"
+                    log_action_cont_msg "Error: $filename - FAILED"
                 else
                     log_action_cont_msg " $filename loaded"
                 fi
@@ -87,7 +87,7 @@ load_sets()
                 rc=1
             fi
         else
-            log_action_cont_msg " configuration $CONF_DIR/$CONF_NAME doesn'e exists - skipping"
+            log_action_cont_msg "Warning: configuration $CONF_DIR/$CONF_NAME doesn'e exists - skipping"
         fi
     fi
 
@@ -98,12 +98,12 @@ save_sets()
 {
     log_action_begin_msg "Saving ipset sets"
 
-    if [ "$IP_SPLIT_CONFIG" == "yes" ]; then
+    if [ "$IP_SPLIT_CONFIG" = "yes" ]; then
         for setname in `ipset list -n`; do
             $IPSET_BIN save $setname > "$CONF_DIR/$setname.set"
             if [ $? -ne 0 ]; then
                 rc=1
-                log_action_cont_msg " $setname - FAILED"
+                log_action_cont_msg "Error: $setname - FAILED"
             else
                 log_action_cont_msg " $setname saved"
             fi
