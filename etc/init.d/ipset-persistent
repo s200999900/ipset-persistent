@@ -31,29 +31,34 @@ IP_SPLIT_CONFIG="yes"
 . /lib/lsb/init-functions
 
 # Other stuff
-RETVAL=0
+rc=0
 
 checks()
 {
     # Checking for ipset binary
     if [ ! -z "$IPSET_BIN" ]; then
         if [ ! -f "$IPSET_BIN" ] || [ ! -x "$IPSET_BIN" ]; then
-            log_failure_msg "Command ipset is defined in $DEFAULTS, but not found or is not executable. Please fix or remove definition."
-            exit 1
+            log_failure_msg "Error: Command ipset is defined in $DEFAULTS, but not found or is not executable. Please fix or remove definition."
+            rc=1
         fi
     fi
     if [ -z "$IPSET_BIN" ]; then
-        if ! hash ipset &>/dev/null; then 
-            log_failure_msg "Command ipset not found in PATH - please define it in $DEFAULTS"
-            exit 1
+        if ! which ipset &>/dev/null; then
+            log_failure_msg "Error: Command ipset not found in PATH - please define it in $DEFAULTS"
+            rc=1
         else
             IPSET_BIN="ipset"
         fi
     fi
+
+    /sbin/modprobe -q ip_set
+    if [ $? -ne 0 ]; then
+        echo "Error: ipset no kernel modules loaded"
+    fi
     # Checking if directory for sets presents
     if [ ! -d "$CONF_DIR" ]; then
-        log_failure_msg "Directory '$CONF_DIR' doesn't exists - can't continue"
-        exit 1
+        log_failure_msg "Error: Directory '$CONF_DIR' doesn't exists - can't continue"
+        rc=1
     fi
 }
 
@@ -67,7 +72,7 @@ load_sets()
             if [ -f "$filename" ]; then
                 $IPSET_BIN restore -exist < "$filename"
                 if [ $? -ne 0 ]; then
-                    RETVAL=1
+                    rc=1
                     log_action_cont_msg " $filename - FAILED"
                 else
                     log_action_cont_msg " $filename loaded"
@@ -79,14 +84,14 @@ load_sets()
         if [ -f "$CONF_DIR/$CONF_NAME" ]; then
             $IPSET_BIN restore -exist < "$CONF_DIR/$CONF_NAME"
             if [ $? -ne 0 ]; then
-                RETVAL=1
+                rc=1
             fi
         else
             log_action_cont_msg " configuration $CONF_DIR/$CONF_NAME doesn'e exists - skipping"
         fi
     fi
 
-    log_action_end_msg $RETVAL
+    log_action_end_msg $rc
 }
 
 save_sets()
@@ -97,7 +102,7 @@ save_sets()
         for setname in `ipset list -n`; do
             $IPSET_BIN save $setname > "$CONF_DIR/$setname.set"
             if [ $? -ne 0 ]; then
-                RETVAL=1
+                rc=1
                 log_action_cont_msg " $setname - FAILED"
             else
                 log_action_cont_msg " $setname saved"
@@ -106,11 +111,11 @@ save_sets()
     else
         $IPSET_BIN save $setname > "$CONF_DIR/$CONF_NAME"
         if [ $? -ne 0 ]; then
-            RETVAL=1
+            rc=1
         fi
     fi
 
-    log_action_end_msg $RETVAL
+    log_action_end_msg $rc
 }
 
 flush_sets()
@@ -118,8 +123,12 @@ flush_sets()
     log_action_begin_msg "Flushing all sets"
 
     $IPSET_BIN flush
-
-    log_action_end_msg $?
+    $IPSET_BIN destroy
+    if [ $? -ne 0 ]; then
+        log_action_begin_msg "Error: Flush ipset rules failed $?"
+        rc=1
+    fi
+    log_action_end_msg 0
 }
 
 case "$1" in
@@ -138,7 +147,9 @@ case "$1" in
     *)
         checks
         log_success_msg "Usage: $0 {start|restart|reload|force-reload|save|stop}"
-        exit 1
+        rc=1
 esac
+
+exit $rc
 
 # end of file
