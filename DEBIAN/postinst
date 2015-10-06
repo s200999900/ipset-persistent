@@ -1,0 +1,3 @@
+#!/bin/bash
+echo "IPSET_BIN=`which ipset`" >> /etc/default/ipset-persistent
+mkdir --mode=750 /etc/ipset/

@@ -1,0 +1,6 @@
+Package: ipset-persistent 
+Version: 0.0.1 
+Priority: optional
+Architecture: all
+Maintainer: Serhii 
+Description: Make ipset's perstistent 
